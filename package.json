@@ -1,0 +1,38 @@
+{
+  "name": "backend-nestjs-api",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "nest start",
+    "start:dev": "nest start --watch"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^9.0.0",
+    "@nestjs/core": "^9.0.0",
+    "@nestjs/jwt": "^9.0.0",
+    "@nestjs/mapped-types": "^1.2.1",
+    "@nestjs/passport": "^9.0.0",
+    "@nestjs/platform-express": "^9.4.3",
+    "@prisma/client": "^4.0.0",
+    "bcryptjs": "^3.0.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "dotenv": "^10.0.0",
+    "express": "^4.18.2",
+    "multer": "^2.0.0",
+    "passport": "^0.6.0",
+    "passport-jwt": "^4.0.0",
+    "prisma": "^4.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.7",
+    "@types/dotenv": "^8.2.0",
+    "@types/express": "^5.0.2",
+    "@types/multer": "^1.4.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^4.9.5"
+  }
+}

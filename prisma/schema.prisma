@@ -1,0 +1,595 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum DeliveryOption {
+  STANDARD
+  EXPRESS
+  STORE_PICKUP
+}
+
+enum PaymentMethod {
+  UPI
+  COD
+  CARD
+  NETBANKING
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+// ─── BRAND ─────────────────────────────────────────────────────────────────────
+
+model Brand {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  logo_url   String?
+  status     Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  products Product[]
+
+  @@map("brands")
+}
+
+// ─── COLOR & SIZE ─────────────────────────────────────────────────────────────
+
+model Color {
+  id       Int     @id @default(autoincrement())
+  label    String
+  hex_code String?
+  status   Boolean @default(true)
+
+  // two separate relations need distinct names:
+  products Product[] @relation("ProductMainColor")
+  variants Variant[] @relation("VariantColor")
+
+  @@map("colors")
+}
+
+model SizeUOM {
+  id     Int     @id @default(autoincrement())
+  title  String  @unique
+  status Boolean @default(true)
+
+  variants Variant[] @relation("VariantSizeRelation")
+  products Product[] @relation("ProductSizeRelation")
+
+  @@map("size_uom")
+}
+
+// ─── VARIANT ──────────────────────────────────────────────────────────────────
+
+model Variant {
+  id           Int    @id @default(autoincrement())
+  productId    Int
+  sku          String
+  stock        Int
+  mrp          Float
+  sellingPrice Float
+  sizeId       Int?
+  colorId      Int?
+
+  product   Product     @relation(fields: [productId], references: [id])
+  size      SizeUOM?    @relation("VariantSizeRelation", fields: [sizeId], references: [id])
+  color     Color?      @relation("VariantColor", fields: [colorId], references: [id])
+  images    Image[]
+  OrderItem OrderItem[]
+  Wishlist  Wishlist[]
+
+  @@map("product_variants")
+}
+
+// ─── PRODUCT DETAILS & IMAGES ─────────────────────────────────────────────────
+
+model ProductDetails {
+  id              Int     @id @default(autoincrement())
+  productId       Int     @unique
+  model           String?
+  weight          Float?
+  sla             Int?
+  deliveryCharges Float?
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("product_details")
+}
+
+model Image {
+  id        Int     @id @default(autoincrement())
+  productId Int?
+  variantId Int?
+  url       String
+  alt       String?
+  isMain    Boolean @default(false)
+
+  product Product? @relation(fields: [productId], references: [id])
+  variant Variant? @relation(fields: [variantId], references: [id])
+
+  @@map("product_images")
+}
+
+// ─── MISCELLANEOUS MODELS ──────────────────────────────────────────────────────
+
+model Warranty {
+  id              Int     @id @default(autoincrement())
+  duration_months Int?
+  description     String?
+
+  @@map("warranties")
+}
+
+model Style {
+  id     Int     @id @default(autoincrement())
+  name   String
+  status Boolean @default(true)
+
+  @@map("styles")
+}
+
+model Finish {
+  id     Int     @id @default(autoincrement())
+  name   String
+  status Boolean @default(true)
+
+  @@map("finishes")
+}
+
+model RoomType {
+  id     Int     @id @default(autoincrement())
+  name   String
+  status Boolean @default(true)
+
+  @@map("room_types")
+}
+
+model Material {
+  id     Int     @id @default(autoincrement())
+  name   String
+  status Boolean @default(true)
+
+  @@map("materials")
+}
+
+model ShippingPartner {
+  id            Int     @id @default(autoincrement())
+  name          String?
+  api_key       String?
+  contact_email String?
+  status        Boolean @default(true)
+
+  @@map("shipping_partners")
+}
+
+model TaxRule {
+  id            Int          @id @default(autoincrement())
+  name          String?
+  percentage    Float?
+  applicable_on ApplicableOn @default(MRP)
+
+  @@map("tax_rules")
+}
+
+enum ApplicableOn {
+  MRP
+  Discounted
+}
+
+model Vendor {
+  id            Int     @id @default(autoincrement())
+  name          String
+  contact_email String?
+  phone         String?
+  address       String?
+  status        Boolean @default(true)
+
+  @@map("vendors")
+}
+
+model Slider {
+  id         Int      @id @default(autoincrement())
+  title      String
+  image_url  String
+  link       String?
+  priority   Int      @default(0)
+  status     Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  @@map("sliders")
+}
+
+model SliderRight {
+  id        Int      @id @default(1)
+  image1    String
+  image2    String
+  image3    String
+  updatedAt DateTime @updatedAt
+
+  @@map("slider_right")
+}
+
+model MainCategoryPromotion {
+  id            Int      @id @default(autoincrement())
+  title         String
+  position      String
+  display_count Int
+  display_rows  Int
+  image_url     String
+  status        Boolean  @default(true)
+  created_at    DateTime @default(now())
+
+  @@map("main_category_promotions")
+}
+
+model AssemblyType {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  @@map("assembly_types")
+}
+
+// ─── CATEGORY & PRODUCT ────────────────────────────────────────────────────────
+
+model Category {
+  id           Int        @id @default(autoincrement())
+  title        String
+  position     Int?
+  status       Boolean    @default(true)
+  frontDisplay String?
+  appIcon      String?
+  webImage     String?
+  mainImage    String?
+  parentId     Int?
+  parent       Category?  @relation("CategoryToChildren", fields: [parentId], references: [id])
+  children     Category[] @relation("CategoryToChildren")
+
+  // direct one‑to‑one to FeatureType and FilterType
+  featureTypeId Int?
+  featureType   FeatureType? @relation(fields: [featureTypeId], references: [id])
+  filterTypeId  Int?
+  filterType    FilterType?  @relation(fields: [filterTypeId], references: [id])
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model Product {
+  id          Int     @id @default(autoincrement())
+  sku         String  @unique
+  title       String
+  description String?
+
+  brandId Int?
+  brand   Brand? @relation(fields: [brandId], references: [id])
+
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  colorId Int?
+  color   Color? @relation("ProductMainColor", fields: [colorId], references: [id])
+
+  sizeId Int?
+  size   SizeUOM? @relation("ProductSizeRelation", fields: [sizeId], references: [id])
+
+  mrp            Float
+  sellingPrice   Float
+  stock          Int
+  searchKeywords String?
+
+  variants       Variant[]
+  images         Image[]
+  productDetails ProductDetails?
+  features       ProductFeature[]
+  filters        ProductFilter[]
+
+  status    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  OrderItem OrderItem[]
+  Wishlist  Wishlist[]
+
+  @@map("products")
+}
+
+// ─── FEATURE HIERARCHY & JOINS ────────────────────────────────────────────────
+
+model FeatureType {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  featureSets FeatureSet[]
+  Category    Category[]
+
+  @@map("feature_types")
+}
+
+model FeatureSet {
+  id            Int           @id @default(autoincrement())
+  title         String
+  priority      Int           @default(0)
+  status        Boolean       @default(true)
+  featureTypeId Int
+  featureType   FeatureType   @relation(fields: [featureTypeId], references: [id])
+  featureLists  FeatureList[]
+
+  @@map("feature_sets")
+}
+
+model FeatureList {
+  id           Int        @id @default(autoincrement())
+  label        String
+  priority     Int        @default(0)
+  status       Boolean    @default(true)
+  featureSetId Int
+  featureSet   FeatureSet @relation(fields: [featureSetId], references: [id])
+
+  productFeatures ProductFeature[]
+
+  @@map("feature_lists")
+}
+
+model ProductFeature {
+  id            Int     @id @default(autoincrement())
+  productId     Int
+  featureListId Int
+  value         String?
+
+  product     Product     @relation(fields: [productId], references: [id])
+  featureList FeatureList @relation(fields: [featureListId], references: [id])
+
+  @@unique([productId, featureListId], name: "productId_featureListId") // 
+
+  @@map("product_features")
+}
+
+// ─── FILTER HIERARCHY & JOINS ─────────────────────────────────────────────────
+
+model FilterType {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+  filterSets FilterSet[]
+  Category   Category[]
+
+  @@map("filter_types")
+}
+
+model FilterSet {
+  id           Int          @id @default(autoincrement())
+  title        String
+  priority     Int          @default(0)
+  status       Boolean      @default(true)
+  filterTypeId Int
+  filterType   FilterType   @relation(fields: [filterTypeId], references: [id])
+  filterLists  FilterList[]
+
+  @@map("filter_sets")
+}
+
+model FilterList {
+  id          Int       @id @default(autoincrement())
+  label       String
+  priority    Int       @default(0)
+  status      Boolean   @default(true)
+  filterSetId Int
+  filterSet   FilterSet @relation(fields: [filterSetId], references: [id])
+
+  productFilters ProductFilter[]
+
+  @@map("filter_lists")
+}
+
+model ProductFilter {
+  id           Int @id @default(autoincrement())
+  productId    Int
+  filterListId Int
+
+  product    Product    @relation(fields: [productId], references: [id])
+  filterList FilterList @relation(fields: [filterListId], references: [id])
+
+  @@unique([productId, filterListId], name: "productId_filterListId") // 
+
+  @@map("product_filters")
+}
+
+
+model User {
+  id             Int      @id @default(autoincrement())
+  name           String
+  email          String   @unique
+  phone          String?
+  password       String
+  profilePicture String?
+  role           UserRole @default(CUSTOMER)
+  status         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  orders         Order[]
+  addresses      Address[]
+  appliedCoupons AppliedCoupon[]
+  Wishlist       Wishlist[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  VENDOR
+  SUPPORT
+}
+
+model Address {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  label     String // "Home", "Office"
+  name      String
+  phone     String
+  address1  String
+  address2  String?
+  city      String
+  state     String
+  zipCode   String
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id])
+  orders Order[]
+
+  @@map("user_addresses")
+}
+
+model Order {
+  id            Int            @id @default(autoincrement())
+  userId        Int
+  addressId     Int
+  deliveryType  DeliveryOption
+  paymentMethod PaymentMethod
+  couponId      Int? // optional
+  status        OrderStatus    @default(PENDING)
+  subtotal      Float
+  shippingFee   Float
+  gst           Float
+  totalAmount   Float
+  note          String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user    User        @relation(fields: [userId], references: [id])
+  address Address     @relation(fields: [addressId], references: [id])
+  coupon  Coupon?     @relation(fields: [couponId], references: [id])
+  items   OrderItem[]
+  payment Payment?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int   @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  variantId Int?
+  quantity  Int   @default(1)
+  price     Float // per item price
+  total     Float // price * quantity
+
+  order   Order    @relation(fields: [orderId], references: [id])
+  product Product  @relation(fields: [productId], references: [id])
+  variant Variant? @relation(fields: [variantId], references: [id])
+
+  @@map("order_items")
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  orderId       Int           @unique
+  method        PaymentMethod
+  status        PaymentStatus
+  paidAt        DateTime?
+  transactionId String?
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("payments")
+}
+
+model PriceRange {
+  id    Int    @id @default(autoincrement())
+  label String @unique // e.g., "100-500"
+  min   Int
+  max   Int? // nullable for "5000+"
+
+  coupons Coupon[]
+}
+
+model Coupon {
+  id             Int        @id @default(autoincrement())
+  code           String     @unique
+  type           CouponType
+  priceType      PriceType
+  value          Float
+  minOrderAmount Float      @default(0)
+  fromDate       DateTime?
+  toDate         DateTime?
+  status         Boolean    @default(true) //  New status field
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // Dynamic condition fields based on coupon type
+  menuId         Int?
+  subMenuId      Int?
+  listSubMenuId  Int?
+  brandId        Int?
+  sellerId       Int?
+  url            String?
+  priceRangeId   Int? // renamed from priceId
+  priceRange     PriceRange?     @relation(fields: [priceRangeId], references: [id])
+  appliedCoupons AppliedCoupon[]
+  orders         Order[]
+
+  @@map("coupons")
+}
+
+enum CouponType {
+  LIST_SUBMENU
+  BRAND
+  URL
+  PRICE
+  SELLER
+}
+
+enum PriceType {
+  FIXED
+  PERCENTAGE
+}
+
+model AppliedCoupon {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  couponId  Int
+  orderId   Int?
+  appliedAt DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, couponId]) // prevent reuse unless reset
+  @@map("applied_coupons")
+}
+
+model Wishlist {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  variantId Int      @default(0)
+  size      String?
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id])
+  product Product  @relation(fields: [productId], references: [id])
+  variant Variant? @relation(fields: [variantId], references: [id])
+
+  @@unique([userId, productId, variantId])
+  @@map("wishlist")
+}
