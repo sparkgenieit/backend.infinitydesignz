@@ -5,6 +5,10 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { AuthGuard } from './auth.guard';
+
+
+import { UsersModule } from '../users/users.module'; // ✅ IMPORT THIS
 
 @Module({
   imports: [
@@ -13,8 +17,11 @@ import { JwtAuthGuard } from './jwt-auth.guard';
       secret: process.env.JWT_SECRET || 'secretKey',
       signOptions: { expiresIn: '1h' },
     }),
+    UsersModule
   ],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, JwtStrategy, AuthGuard,JwtAuthGuard],
   controllers: [AuthController],
+exports: [AuthService, AuthGuard, JwtModule, UsersModule],
+
 })
 export class AuthModule {}

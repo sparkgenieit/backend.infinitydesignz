@@ -83,7 +83,7 @@ async findAll() {
         include: { filterSets: { include: { filterLists: true } } },
       },
     },
-    orderBy: { id: 'asc' },
+    orderBy: { id: 'desc' },
   });
 
   const formatted = categories.map(c => ({

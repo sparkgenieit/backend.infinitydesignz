@@ -51,7 +51,7 @@ import { WishlistModule } from './wishlist/wishlist.module';
     CommonStatusModule,
     CouponModule,  
     PriceRangeModule,
-    //UsersModule,
+    UsersModule,
     WishlistModule,
   ],
 })

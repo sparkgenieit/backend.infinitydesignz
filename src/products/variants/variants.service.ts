@@ -4,23 +4,51 @@ import { PrismaService } from '../../prisma/prisma.service';
 @Injectable()
 export class VariantsService {
   constructor(private readonly prisma: PrismaService) {}
+async create(productId: number, data: any[]) {
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new BadRequestException('❌ Payload must be a non-empty array of variants.');
+  }
 
-  async create(data: any) {
+  const productExists = await this.prisma.product.findUnique({
+    where: { id: productId },
+  });
+
+  if (!productExists) {
+    throw new BadRequestException(`❌ Product with ID '${productId}' does not exist.`);
+  }
+
+  const createdVariants = [];
+
+  for (const item of data) {
     const existing = await this.prisma.variant.findFirst({
-      where: { sku: data.sku },
+      where: { sku: item.sku },
     });
 
     if (existing) {
-      throw new BadRequestException('❌ Variant with this SKU already exists.');
+      throw new BadRequestException(`❌ Variant with SKU '${item.sku}' already exists.`);
     }
 
-    const result = await this.prisma.variant.create({ data });
-    return { message: 'Variant created successfully.', variant: result };
+    const created = await this.prisma.variant.create({
+      data: {
+        sku: item.sku,
+        stock: item.stock,
+        mrp: item.mrp,
+        sellingPrice: item.sellingPrice,
+        product: { connect: { id: productId } },
+        ...(item.sizeId && { size: { connect: { id: item.sizeId } } }),
+        ...(item.colorId && { color: { connect: { id: item.colorId } } }),
+      },
+    });
+
+    createdVariants.push(created);
   }
+
+  return createdVariants;
+}
 
   async findAll() {
     const variants = await this.prisma.variant.findMany();
-    return { message: 'Variants fetched successfully.', variants };
+    return  variants;
   }
 
   async findOne(id: number) {
@@ -28,7 +56,7 @@ export class VariantsService {
     if (!variant) {
       throw new BadRequestException('❌ Variant not found.');
     }
-    return { message: 'Variant fetched successfully.', variant };
+    return variant;
   }
 
   async update(id: number, data: any) {

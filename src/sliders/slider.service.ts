@@ -12,10 +12,7 @@ export class SliderService {
       orderBy: { priority: 'asc' },
     });
 
-    return {
-      message: 'Sliders fetched successfully.',
-      data: sliders,
-    };
+    return sliders;
   }
 
   async create(data: CreateSliderDto & { image_url: string }) {

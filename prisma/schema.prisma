@@ -358,7 +358,6 @@ model ProductFeature {
   featureList FeatureList @relation(fields: [featureListId], references: [id])
 
   @@unique([productId, featureListId], name: "productId_featureListId") // 
-
   @@map("product_features")
 }
 
@@ -407,22 +406,22 @@ model ProductFilter {
   filterList FilterList @relation(fields: [filterListId], references: [id])
 
   @@unique([productId, filterListId], name: "productId_filterListId") // 
-
   @@map("product_filters")
 }
 
-
 model User {
   id             Int      @id @default(autoincrement())
-  name           String
-  email          String   @unique
-  phone          String?
-  password       String
-  profilePicture String?
+  name           String? // optional
+  email          String?  
+  password       String? // optional
+  phone          String   @unique
   role           UserRole @default(CUSTOMER)
-  status         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  token          String?
+  profilePicture String?
+
+  status    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   orders         Order[]
   addresses      Address[]
@@ -532,8 +531,8 @@ model Coupon {
   toDate         DateTime?
   status         Boolean    @default(true) //  New status field
 
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Dynamic condition fields based on coupon type
   menuId         Int?

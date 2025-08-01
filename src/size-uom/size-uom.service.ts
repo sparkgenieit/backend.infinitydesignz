@@ -25,7 +25,7 @@ export class SizeUOMService {
       },
     });
 
-    return { message: 'Size UOM list fetched successfully.', list: result };
+    return result;
   }
 
   async findOne(id: number) {
@@ -33,7 +33,7 @@ export class SizeUOMService {
     if (!result) {
       throw new BadRequestException('❌ Size UOM not found.');
     }
-    return { message: 'Size UOM fetched successfully.', sizeUOM: result };
+    return result;
   }
 
   async update(id: number, data: Partial<{ title: string; status: boolean }>) {

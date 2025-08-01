@@ -12,10 +12,7 @@ export class SliderRightService {
       throw new NotFoundException('❌ SliderRight not found.');
     }
 
-    return {
-      message: 'SliderRight data fetched successfully.',
-      data: slider,
-    };
+    return slider;
   }
 
   async update(images: { image1?: string; image2?: string; image3?: string }) {

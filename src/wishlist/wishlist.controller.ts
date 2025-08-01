@@ -8,37 +8,37 @@ import {
   Body,
   Param,
   Req,
-  UseGuards
-} from '@nestjs/common';
-import { WishlistService } from './wishlist.service';
-import { AddToWishlistDto } from './dto/add-to-wishlist.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+  UseGuards,
+} from "@nestjs/common";
+import { WishlistService } from "./wishlist.service";
+import { AddToWishlistDto } from "./dto/add-to-wishlist.dto";
+import { AuthGuard } from "../auth/auth.guard";
 
-@Controller('wishlist')
+@Controller("wishlist")
 export class WishlistController {
   constructor(private readonly wishlistService: WishlistService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard)
   @Post()
   addToWishlist(@Req() req, @Body() dto: AddToWishlistDto) {
     return this.wishlistService.add(req.user.id, dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard)
   @Get()
   getWishlist(@Req() req) {
     return this.wishlistService.getUserWishlist(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Delete(':productId')
-  removeFromWishlist(@Req() req, @Param('productId') productId: number) {
-    return this.wishlistService.remove(req.user.id, +productId);
+  @UseGuards(AuthGuard)
+  @Delete(":wishlistId")
+  removeFromWishlist(@Req() req, @Param("wishlistId") wishlistId: number) {
+    return this.wishlistService.remove(req.user.id, +wishlistId);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post('move-to-cart/:productId')
-  moveToCart(@Req() req, @Param('productId') productId: number) {
+  @UseGuards(AuthGuard)
+  @Post("move-to-cart/:productId")
+  moveToCart(@Req() req, @Param("productId") productId: number) {
     return this.wishlistService.moveToCart(req.user.id, +productId);
   }
 }
