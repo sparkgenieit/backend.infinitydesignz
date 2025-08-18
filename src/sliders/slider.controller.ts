@@ -19,7 +19,7 @@ import { CreateSliderDto } from './dto/create-slider.dto';
 import { UpdateSliderDto } from './dto/update-slider.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard)
+
 @Controller('sliders')
 export class SliderController {
   constructor(private readonly sliderService: SliderService) {}
@@ -28,7 +28,8 @@ export class SliderController {
   async findAll() {
     return this.sliderService.findAll();
   }
-
+  
+@UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(
     FileInterceptor('image', {
@@ -51,6 +52,7 @@ export class SliderController {
     });
   }
 
+@UseGuards(JwtAuthGuard)
   @Put(':id')
   @UseInterceptors(
     FileInterceptor('image', {
@@ -73,7 +75,7 @@ export class SliderController {
       ...(file ? { image_url: file.filename } : {}),
     });
   }
-
+@UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.sliderService.remove(id);

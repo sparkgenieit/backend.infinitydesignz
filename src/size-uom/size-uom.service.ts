@@ -11,7 +11,7 @@ export class SizeUOMService {
     });
 
     if (existing) {
-      throw new BadRequestException('❌ Size UOM with this title already exists.');
+      throw new BadRequestException(' Size UOM with this title already exists.');
     }
 
     const result = await this.prisma.sizeUOM.create({ data });
@@ -31,7 +31,7 @@ export class SizeUOMService {
   async findOne(id: number) {
     const result = await this.prisma.sizeUOM.findUnique({ where: { id } });
     if (!result) {
-      throw new BadRequestException('❌ Size UOM not found.');
+      throw new BadRequestException(' Size UOM not found.');
     }
     return result;
   }
@@ -46,7 +46,7 @@ export class SizeUOMService {
       });
 
       if (existing) {
-        throw new BadRequestException('❌ Another Size UOM with the same title already exists.');
+        throw new BadRequestException(' Another Size UOM with the same title already exists.');
       }
     }
 
@@ -61,7 +61,7 @@ export class SizeUOMService {
   async remove(id: number) {
     const existing = await this.prisma.sizeUOM.findUnique({ where: { id } });
     if (!existing) {
-      throw new BadRequestException('❌ Size UOM not found for deletion.');
+      throw new BadRequestException(' Size UOM not found for deletion.');
     }
 
     await this.prisma.sizeUOM.delete({ where: { id } });

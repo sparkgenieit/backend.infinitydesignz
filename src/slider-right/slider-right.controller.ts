@@ -13,7 +13,7 @@ import { extname } from 'path';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 
- @UseGuards(JwtAuthGuard)
+
 @Controller('slider-right')
 export class SliderRightController {
   constructor(private readonly sliderService: SliderRightService) {}
@@ -23,6 +23,7 @@ export class SliderRightController {
     return this.sliderService.findOne();
   }
 
+   @UseGuards(JwtAuthGuard)
   @Put()
   @UseInterceptors(
     FileFieldsInterceptor(

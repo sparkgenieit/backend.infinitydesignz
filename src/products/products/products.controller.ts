@@ -20,7 +20,7 @@ export class ProductsController {
     return this.productsService.findAll();
   }
 
-@Get('search') // ✅ Now matches /products/search
+@Get('search') //  Now matches /products/search
   async searchProducts(
     @Query('mainCategoryId') mainCategoryId: string,
     @Query('subCategoryId') subCategoryId: string,
@@ -35,7 +35,7 @@ export class ProductsController {
       listSubCatId: listSubCatId ? parseInt(listSubCatId) : undefined,
       brandId: brandId ? parseInt(brandId) : undefined,
       searchStr,
-      filters: filters || '{}', // ✅ Avoid JSON parse error on undefined
+      filters: filters || '{}', //  Avoid JSON parse error on undefined
     };
 
     if ( isNaN(parsed.subCategoryId)) {

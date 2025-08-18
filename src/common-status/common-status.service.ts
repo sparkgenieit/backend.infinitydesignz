@@ -13,6 +13,7 @@ export class CommonStatusService {
     'coupons': 'coupon',
     'brands': 'brand',
     'products': 'product',
+    'sliders': 'slider',
     // add more here if needed
   };
 

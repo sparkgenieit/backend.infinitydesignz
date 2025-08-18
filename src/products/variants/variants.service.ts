@@ -6,7 +6,7 @@ export class VariantsService {
   constructor(private readonly prisma: PrismaService) {}
 async create(productId: number, data: any[]) {
   if (!Array.isArray(data) || data.length === 0) {
-    throw new BadRequestException('❌ Payload must be a non-empty array of variants.');
+    throw new BadRequestException(' Payload must be a non-empty array of variants.');
   }
 
   const productExists = await this.prisma.product.findUnique({
@@ -14,7 +14,7 @@ async create(productId: number, data: any[]) {
   });
 
   if (!productExists) {
-    throw new BadRequestException(`❌ Product with ID '${productId}' does not exist.`);
+    throw new BadRequestException(` Product with ID '${productId}' does not exist.`);
   }
 
   const createdVariants = [];
@@ -25,7 +25,7 @@ async create(productId: number, data: any[]) {
     });
 
     if (existing) {
-      throw new BadRequestException(`❌ Variant with SKU '${item.sku}' already exists.`);
+      throw new BadRequestException(` Variant with SKU '${item.sku}' already exists.`);
     }
 
     const created = await this.prisma.variant.create({
@@ -54,7 +54,7 @@ async create(productId: number, data: any[]) {
   async findOne(id: number) {
     const variant = await this.prisma.variant.findUnique({ where: { id } });
     if (!variant) {
-      throw new BadRequestException('❌ Variant not found.');
+      throw new BadRequestException(' Variant not found.');
     }
     return variant;
   }
@@ -68,7 +68,7 @@ async create(productId: number, data: any[]) {
     });
 
     if (existing) {
-      throw new BadRequestException('❌ Another variant with this SKU already exists.');
+      throw new BadRequestException(' Another variant with this SKU already exists.');
     }
 
     const updated = await this.prisma.variant.update({
@@ -82,7 +82,7 @@ async create(productId: number, data: any[]) {
   async remove(id: number) {
     const existing = await this.prisma.variant.findUnique({ where: { id } });
     if (!existing) {
-      throw new BadRequestException('❌ Variant not found for deletion.');
+      throw new BadRequestException(' Variant not found for deletion.');
     }
 
     await this.prisma.variant.delete({ where: { id } });

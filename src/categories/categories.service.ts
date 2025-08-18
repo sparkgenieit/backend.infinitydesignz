@@ -222,7 +222,7 @@ async findOne(id: number) {
       .join(', ');
 
     throw new BadRequestException(
-      `❌ Cannot delete: One or more categories (including children) are assigned to products: ${preview}. Please reassign them first.`
+      ` Cannot delete: One or more categories (including children) are assigned to products: ${preview}. Please reassign them first.`
     );
   }
 

@@ -22,7 +22,7 @@ export class VariantsController {
   ) {
     if (!Array.isArray(dto)) {
       throw new BadRequestException(
-        "❌ Please send an array of variant objects."
+        " Please send an array of variant objects."
       );
     }
     return this.variantsService.create(Number(productId), dto);

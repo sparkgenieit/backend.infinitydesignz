@@ -7,12 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum DeliveryOption {
-  STANDARD
-  EXPRESS
-  STORE_PICKUP
-}
-
 enum PaymentMethod {
   UPI
   COD
@@ -93,9 +87,14 @@ model Variant {
   images    Image[]
   OrderItem OrderItem[]
   Wishlist  Wishlist[]
+  CartItem  CartItem[]
+
+  // NEW: back-relation to Buy Now items
+  buyNowItems BuyNowItem[]
 
   @@map("product_variants")
 }
+
 
 // ─── PRODUCT DETAILS & IMAGES ─────────────────────────────────────────────────
 
@@ -308,6 +307,10 @@ model Product {
   updatedAt DateTime    @updatedAt
   OrderItem OrderItem[]
   Wishlist  Wishlist[]
+  CartItem  CartItem[]
+
+  // NEW: back-relation to Buy Now items
+  buyNowItems BuyNowItem[]
 
   @@map("products")
 }
@@ -409,15 +412,25 @@ model ProductFilter {
   @@map("product_filters")
 }
 
+enum Gender {
+  Male
+  Female
+  Other
+}
+
 model User {
   id             Int      @id @default(autoincrement())
-  name           String? // optional
-  email          String?  
-  password       String? // optional
+  name           String?
+  email          String?
+  password       String?
   phone          String   @unique
   role           UserRole @default(CUSTOMER)
   token          String?
   profilePicture String?
+
+  alternateMobile String?
+  gender          Gender?
+  dateOfBirth     DateTime?
 
   status    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -427,6 +440,10 @@ model User {
   addresses      Address[]
   appliedCoupons AppliedCoupon[]
   Wishlist       Wishlist[]
+  CartItem       CartItem[]
+
+  // NEW: one-to-one Buy Now item
+  buyNowItem     BuyNowItem?
 
   @@map("users")
 }
@@ -439,17 +456,22 @@ enum UserRole {
 }
 
 model Address {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  label     String // "Home", "Office"
-  name      String
-  phone     String
-  address1  String
-  address2  String?
-  city      String
-  state     String
-  zipCode   String
+  id           Int     @id @default(autoincrement())
+  userId       Int
+  name         String
+  buildingName String
+  flatNumber   String
+  addressLine1 String
+  addressLine2 String
+  city         String
+  state        String
+  pincode      String
+  phone        String
+  label        String // Home | Office | Other
+  default      Boolean @default(false) //  Add this line
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user   User    @relation(fields: [userId], references: [id])
   orders Order[]
@@ -458,41 +480,49 @@ model Address {
 }
 
 model Order {
-  id            Int            @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   userId        Int
   addressId     Int
-  deliveryType  DeliveryOption
   paymentMethod PaymentMethod
-  couponId      Int? // optional
-  status        OrderStatus    @default(PENDING)
+  couponId      Int?
+  status        OrderStatus   @default(PENDING)
   subtotal      Float
   shippingFee   Float
   gst           Float
   totalAmount   Float
   note          String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  orderFrom     String        @default("web")   // NEW FIELD
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  user    User        @relation(fields: [userId], references: [id])
-  address Address     @relation(fields: [addressId], references: [id])
-  coupon  Coupon?     @relation(fields: [couponId], references: [id])
-  items   OrderItem[]
-  payment Payment?
+  user     User      @relation(fields: [userId], references: [id])
+  address  Address   @relation(fields: [addressId], references: [id])
+  coupon   Coupon?   @relation(fields: [couponId], references: [id])
+  items    OrderItem[]
+  payment  Payment?
 
   @@map("orders")
+}
+
+model DeliveryOption {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  fee         Float
+  days        String
 }
 
 model OrderItem {
   id        Int   @id @default(autoincrement())
   orderId   Int
-  productId Int
+  productId Int?
   variantId Int?
   quantity  Int   @default(1)
   price     Float // per item price
   total     Float // price * quantity
 
   order   Order    @relation(fields: [orderId], references: [id])
-  product Product  @relation(fields: [productId], references: [id])
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   variant Variant? @relation(fields: [variantId], references: [id])
 
   @@map("order_items")
@@ -580,7 +610,7 @@ model Wishlist {
   id        Int      @id @default(autoincrement())
   userId    Int
   productId Int
-  variantId Int      @default(0)
+  variantId Int?
   size      String?
   quantity  Int      @default(1)
   createdAt DateTime @default(now())
@@ -591,4 +621,51 @@ model Wishlist {
 
   @@unique([userId, productId, variantId])
   @@map("wishlist")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  variantId Int? //  Now optional
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id])
+  product Product  @relation(fields: [productId], references: [id])
+  variant Variant? @relation(fields: [variantId], references: [id])
+
+  @@unique([userId, productId, variantId]) //  Optional variant-safe unique constraint
+  @@map("cart_items")
+}
+
+model ServiceableArea {
+  id              Int     @id @default(autoincrement())
+  pincode         String  @unique @db.VarChar(6)
+  city            String
+  state           String
+  isActive        Boolean @default(true)
+  codAvailable    Boolean @default(false)
+  deliveryEtaDays Int?
+  lastMileFee     Int?    // in your currency (e.g., INR)
+
+  @@index([pincode])
+}
+
+model BuyNowItem {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  productId  Int
+  variantId  Int?
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id])
+  product Product  @relation(fields: [productId], references: [id])
+  variant Variant? @relation(fields: [variantId], references: [id])
+
+
+  @@map("buy_now_items")
 }
