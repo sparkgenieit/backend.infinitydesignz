@@ -11,13 +11,13 @@ import {
   Patch,
   Post,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Gender /*, Role */ } from '@prisma/client';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
-import { AuthGuard } from '../auth/auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcryptjs';
@@ -48,8 +48,21 @@ function normalizeRole(role?: any): UserRole | undefined {
   const key = String(role).toUpperCase().trim();
   return (UserRole as any)[key] as UserRole | undefined;
 }
+    function normalizeGender(gender?: any): Gender | null {
+  // allow explicit clearing
+  if (gender === null || gender === undefined || gender === '') return null;
 
-@UseGuards(AuthGuard)
+  // already a valid enum value?
+  const enumVals = Object.values(Gender) as string[];
+  if (enumVals.includes(gender as any)) return gender as Gender;
+
+  const s = String(gender).trim().toLowerCase();
+  if (s === 'male' || s === 'm') return Gender.Male;
+  if (s === 'female' || s === 'f') return Gender.Female;
+  return Gender.Other;
+}
+
+@UseGuards(JwtAuthGuard)
 @Controller('admin/users')
 export class AdminUsersController {
   constructor(
@@ -77,10 +90,8 @@ export class AdminUsersController {
 
   // ───────────────────────── CREATE ─────────────────────────
   @Post()
-  async createUser(@Req() req: any, @Body() dto: CreateUserDto) {
-    this.assertAdmin(req);
-
-    // Build create data explicitly; hash password if provided
+  async createUser( @Body() dto: CreateUserDto) {
+   // Build create data explicitly; hash password if provided
     const data: Prisma.UserCreateInput = {
       phone: (dto as any).phone, // required by schema
       name: (dto as any).name ?? null,
@@ -93,7 +104,7 @@ export class AdminUsersController {
       profilePicture: (dto as any).profilePicture ?? null,
       // optionals present in your schema:
       alternateMobile: (dto as any).alternateMobile ?? null,
-      gender: (dto as any).gender ?? null,
+      gender: normalizeGender((dto as any).gender),
       dateOfBirth: parseDob((dto as any).dateOfBirth),
       status: (dto as any).status === false ? false : true, // default true
     };
@@ -132,7 +143,6 @@ export class AdminUsersController {
   // ───────────────────────── LIST ─────────────────────────
   @Get()
   async listUsers(
-    @Req() req: any,
     @Query('page') pageQ?: string,
     @Query('take') takeQ?: string,
     @Query('search') search?: string,
@@ -141,7 +151,7 @@ export class AdminUsersController {
     @Query('sortBy') sortByQ?: string,
     @Query('order') orderQ?: SortOrder,
   ) {
-    this.assertAdmin(req);
+    
 
     const page = Math.max(parseInt(pageQ ?? '1', 10) || 1, 1);
     const takeRaw = Math.max(parseInt(takeQ ?? '10', 10) || 10, 1);
@@ -218,19 +228,16 @@ export class AdminUsersController {
 
   // ───────────────────────── READ ─────────────────────────
   @Get(':id')
-  async getUserById(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
-    this.assertAdmin(req);
+  async getUserById(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.getUserById(id);
   }
 
   // ───────────────────────── UPDATE ─────────────────────────
   @Patch(':id')
   async adminUpdateUser(
-    @Req() req: any,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
   ) {
-    this.assertAdmin(req);
 
     // Block password/token changes here; use dedicated flows
     if ('password' in (dto as any) || 'token' in (dto as any)) {
@@ -247,6 +254,9 @@ export class AdminUsersController {
     }
     if (patch.dateOfBirth !== undefined) {
       patch.dateOfBirth = parseDob(patch.dateOfBirth);
+    }
+    if (patch.gender !== undefined) {
+      patch.gender = normalizeGender(patch.gender);
     }
     // Allow toggling status explicitly if provided
     if (patch.status !== undefined) {
@@ -267,24 +277,8 @@ export class AdminUsersController {
   }
 
   @Delete(':id')
-  async deleteUser(
-    @Req() req: any,
-    @Param('id', ParseIntPipe) id: number,
-    @Query('hard') hardQ?: string,
-  ) {
-    this.assertAdmin(req);
-    const hard = this.parseBool(hardQ) === true;
-
-    if (hard) {
-      await this.prisma.user.delete({ where: { id } });
-      return { success: true, hardDeleted: true, id };
-    } else {
-      const updated = await this.prisma.user.update({
-        where: { id },
-        data: { status: false },
-        select: { id: true, status: true, updatedAt: true },
-      });
-      return { success: true, softDeleted: true, user: updated };
-    }
+  async deleteUser(@Param('id', ParseIntPipe) id: number) {
+    await this.prisma.user.delete({ where: { id } });
+    return { success: true, id };
   }
 }
