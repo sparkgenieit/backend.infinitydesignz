@@ -669,3 +669,26 @@ model BuyNowItem {
 
   @@map("buy_now_items")
 }
+
+model Contact {
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String
+  mobile      String?   @db.VarChar(20)
+  subject     String?   @db.VarChar(255)
+  description String?   @db.Text
+  status      Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@map("contacts")
+}
+
+model UserOrder {
+  id            Int      @id @default(autoincrement())
+  email         String   @db.VarChar(180)
+  subscribed_at DateTime @default(now())
+
+  @@map("user_orders")
+}
+
