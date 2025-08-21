@@ -39,6 +39,7 @@ import { BuyNowModule } from './buy-now/buy-now.module';
 
 import { ContactsModule } from './contacts/contacts.module';
 import { UserOrdersModule } from './user-orders/user-orders.module';
+import { KeywordsModule } from './keywords/keywords.module';
 
 @Module({
   imports: [      
@@ -71,7 +72,8 @@ import { UserOrdersModule } from './user-orders/user-orders.module';
     PincodeModule,
     BuyNowModule,
     UserOrdersModule,
-    ContactsModule
+    ContactsModule,
+    KeywordsModule
   ],
 })
 export class AppModule {}
