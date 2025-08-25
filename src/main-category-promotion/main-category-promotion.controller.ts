@@ -1,6 +1,6 @@
 
 import {
-  Controller, Get, Post, Put, Delete, Param, Body,
+  Controller, Get, Post, Patch, Delete, Param, Body,
   UseInterceptors, UploadedFile, ParseIntPipe, UseGuards
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -12,7 +12,7 @@ import { UpdateMainCategoryPromotionDto } from './dto/update-main-category-promo
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
-@Controller('main-category-promotions')
+@Controller('home-category-promotions')
 export class MainCategoryPromotionController {
   constructor(private readonly service: MainCategoryPromotionService) {}
 
@@ -24,7 +24,7 @@ export class MainCategoryPromotionController {
   @Post()
   @UseInterceptors(FileInterceptor('image', {
     storage: diskStorage({
-      destination: './uploads/promotions',
+      destination: './uploads/category_promotions',
       filename: (_req, file, cb) => {
         const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
         cb(null, name + extname(file.originalname));
@@ -32,13 +32,15 @@ export class MainCategoryPromotionController {
     }),
   }))
   async create(@Body() dto: CreateMainCategoryPromotionDto, @UploadedFile() file: Express.Multer.File) {
+  console.log(dto);
+  
     return this.service.create({ ...dto, image_url: file.filename });
   }
 
-  @Put(':id')
+  @Patch(':id')
   @UseInterceptors(FileInterceptor('image', {
     storage: diskStorage({
-      destination: './uploads/promotions',
+      destination: './uploads/category_promotions',
       filename: (_req, file, cb) => {
         const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
         cb(null, name + extname(file.originalname));

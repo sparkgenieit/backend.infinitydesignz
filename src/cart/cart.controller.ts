@@ -39,6 +39,13 @@ export class CartController {
   ) {
     return this.cartService.updateCart(req.user.id, cartId, dto);
   }
+
+  
+  @Delete("clear")
+clearCart(@Req() req) {
+  return this.cartService.clearCart(req.user.id);
+}
+
   @Delete(":cartId")
   removeItem(@Req() req, @Param("cartId", ParseIntPipe) cartId: number) {
     return this.cartService.removeFromCart(req.user.id, cartId);
@@ -48,4 +55,5 @@ export class CartController {
   syncCart(@Req() req, @Body() dto: SyncCartDto) {
     return this.cartService.syncGuestCart(req.user.id, dto);
   }
+
 }

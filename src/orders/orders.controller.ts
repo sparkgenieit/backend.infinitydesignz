@@ -7,10 +7,13 @@ import {
   UseGuards,
   Req,
   Query,
+  Patch,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { BuyNowDto } from './dto/buy-now.dto';
+import { UpdateOrderItemDto, RequestCancelItemDto } from './dto/update-order-item.dto';
+
 import { AuthGuard } from '../auth/auth.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -45,6 +48,18 @@ export class OrdersController {
     return this.ordersService.buyNow(dto, req.user.id);
   }
 
+    // ───────── User requests cancel on a specific ITEM (puts it into CANCEL_REQUESTED) ─────────
+  @UseGuards(AuthGuard)
+  @Patch('items/:id/request-cancel')
+  requestCancelItem(
+    @Param('id') id: string,
+    @Body() body: RequestCancelItemDto,
+    @Req() req: any,
+  ) {
+    return this.ordersService.requestCancelItem(+id, body, req.user.id);
+  }
+
+
   // ───────────────────────── ADMIN/LIST WITH FILTERS ─────────────────────────
   // Example:
   // GET /orders?status=DELIVERED&paymentStatus=SUCCESS&orderId=ORD00001234&dateFrom=2025-02-01&dateTo=2025-02-28&active=true&orderFrom=web&page=1&pageSize=10
@@ -62,10 +77,31 @@ export class OrdersController {
     });
   }
 
+
+ // ───────── Admin approves/cancels specific ITEM (uses your payload) ─────────
+  @UseGuards(JwtAuthGuard)
+  @Patch('items/:id')
+  updateOrderItemStatus(
+    @Param('id') id: string,
+    @Body() body: UpdateOrderItemDto,
+    
+  ) {
+    // req.user should carry role via JwtAuthGuard; service will enforce admin-only transitions
+    return this.ordersService.updateOrderItemStatus(+id, body);
+  }
+
   // ───────────────────────── MUST BE LAST TO AVOID COLLISIONS ─────────────────
-  @UseGuards(AuthGuard)
+
   @Get(':id')
   getOrder(@Param('id') id: string) {
     return this.ordersService.getOrderDetails(+id);
   }
+@Patch(':id')
+updateOrder(@Param('id') id: string, @Body() body: any) {
+  return this.ordersService.updateOrder(+id, body);
 }
+  
+
+  
+}
+

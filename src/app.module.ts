@@ -36,9 +36,9 @@ import { DeliveryOptionsModule } from './delivery-options/delivery-options.modul
 
 import { PincodeModule } from './pincode/pincode.module';
 import { BuyNowModule } from './buy-now/buy-now.module';
-
 import { ContactsModule } from './contacts/contacts.module';
-import { UserOrdersModule } from './user-orders/user-orders.module';
+import { UserSubscribeModule } from './user-subscribe/user-subscribe.module';
+import {FiltersModule} from './filters/filters.module';
 import { KeywordsModule } from './keywords/keywords.module';
 
 @Module({
@@ -71,8 +71,9 @@ import { KeywordsModule } from './keywords/keywords.module';
     DeliveryOptionsModule,
     PincodeModule,
     BuyNowModule,
-    UserOrdersModule,
+    UserSubscribeModule,
     ContactsModule,
+    FiltersModule,
     KeywordsModule
   ],
 })

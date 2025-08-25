@@ -7,6 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrderItemStatus {
+  PENDING            // default state after creation
+  CANCEL_REQUESTED   // user requested cancellation
+  APPROVED           // admin approved (e.g., to proceed/ship)
+  CANCELLED          // admin cancelled this item
+}
+
 enum PaymentMethod {
   UPI
   COD
@@ -227,9 +234,8 @@ model SliderRight {
 model MainCategoryPromotion {
   id            Int      @id @default(autoincrement())
   title         String
-  position      String
   display_count Int
-  display_rows  Int
+  priority      Int
   image_url     String
   status        Boolean  @default(true)
   created_at    DateTime @default(now())
@@ -445,8 +451,6 @@ model User {
   // NEW: one-to-one Buy Now item
   buyNowItem     BuyNowItem?
 
-  keywords       Keyword[]
-
   @@map("users")
 }
 
@@ -522,6 +526,11 @@ model OrderItem {
   quantity  Int   @default(1)
   price     Float // per item price
   total     Float // price * quantity
+
+  // ⬇️ NEW moderation fields
+  status          OrderItemStatus @default(PENDING)
+  moderationNote  String?
+  
 
   order   Order    @relation(fields: [orderId], references: [id])
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -686,22 +695,10 @@ model Contact {
   @@map("contacts")
 }
 
-model UserOrder {
+model UserSubscribe {
   id            Int      @id @default(autoincrement())
   email         String   @db.VarChar(180)
   subscribed_at DateTime @default(now())
 
-  @@map("user_orders")
-}
-
-model Keyword {
-  id        Int      @id @default(autoincrement())
-  keyword   String   @unique @db.VarChar(255)  // ✅ enforce uniqueness
-  userId    Int
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([createdAt])
-  @@map("keywords")
+  @@map("user_subscribers")
 }

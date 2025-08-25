@@ -304,5 +304,18 @@ async syncGuestCart(userId: number, dto: SyncCartDto) {
   };
 }
 
+// NEW: clear items and any pending applied coupon for this user
+async clearCart(userId: number) {
+  await this.prisma.$transaction([
+    this.prisma.cartItem.deleteMany({ where: { userId } }),
+    this.prisma.appliedCoupon.deleteMany({ where: { userId, orderId: null } }),
+  ]);
+
+  return {
+    message: 'Cart cleared successfully',
+    data: await this.getUserCart(userId),
+  };
+}
+
 
 }

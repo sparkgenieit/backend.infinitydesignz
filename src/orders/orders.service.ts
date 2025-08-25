@@ -2,11 +2,23 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { BuyNowDto } from "./dto/buy-now.dto";
+// orders.service.ts
+import { OrderStatus, PaymentStatus,OrderItemStatus  } from '@prisma/client';
+import { UpdateOrderItemDto, RequestCancelItemDto } from './dto/update-order-item.dto';
+const ORDER_FINAL_STATES: OrderStatus[] = ['DELIVERED', 'CANCELLED'] as any;
 
+type UpdateOrderPayload =
+  | string
+  | {
+      status?: OrderStatus | string;
+      paymentStatus?: PaymentStatus | string;
+      note?: string;
+    };
 type ListOrdersParams = {
   status?: 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
   paymentStatus?: 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
@@ -20,6 +32,38 @@ type ListOrdersParams = {
 };
 
 
+type IncomingOrderItem = {
+  productId: number;
+  variantId?: number | null;
+  quantity: number;
+  price: number;   // per-unit price
+  total: number;   // line total
+};
+
+function normalizeItems(input: unknown): IncomingOrderItem[] {
+  if (Array.isArray(input)) return input as IncomingOrderItem[];
+
+  if (typeof input === 'string') {
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed)) return parsed as IncomingOrderItem[];
+      if (parsed && typeof parsed === 'object') {
+        return Object.values(parsed as Record<string, unknown>) as IncomingOrderItem[];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  if (input && typeof input === 'object') {
+    return Object.values(input as Record<string, unknown>) as IncomingOrderItem[];
+  }
+
+  return [];
+}
+
+
 @Injectable()
 export class OrdersService {
   constructor(private prisma: PrismaService) {}
@@ -28,19 +72,35 @@ async placeOrder(dto: CreateOrderDto, userId: number) {
   const {
     addressId,
     couponId,
-    items,
     subtotal,
     shippingFee,
     gst,
     totalAmount,
     note,
-  } = dto;
+    paymentMethod,
+  } = dto as any;
 
-  //  Validate user exists
+  // Normalize & validate items (survives ValidationPipe + form-data cases)
+  const itemsArr: IncomingOrderItem[] = normalizeItems((dto as any).items);
+  if (!itemsArr.length) {
+    throw new BadRequestException('Items must be a non-empty array');
+  }
+  for (const [idx, it] of itemsArr.entries()) {
+    if (
+      !it ||
+      typeof it.productId !== 'number' ||
+      typeof it.quantity !== 'number' ||
+      it.quantity <= 0
+    ) {
+      throw new BadRequestException(`Invalid item at index ${idx}`);
+    }
+  }
+
+  // Validate user
   const user = await this.prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new NotFoundException('User not found');
 
-  //  Validate address exists and belongs to user
+  // Validate address belongs to user
   const address = await this.prisma.address.findFirst({
     where: { id: addressId, userId },
   });
@@ -48,7 +108,7 @@ async placeOrder(dto: CreateOrderDto, userId: number) {
     throw new BadRequestException('Address not found or unauthorized');
   }
 
-  //  Validate coupon (if provided)
+  // Validate coupon (optional)
   if (couponId) {
     const coupon = await this.prisma.coupon.findUnique({
       where: { id: couponId },
@@ -58,8 +118,8 @@ async placeOrder(dto: CreateOrderDto, userId: number) {
     }
   }
 
-  //  Validate each product and (optional) variant
-  for (const item of items) {
+  // Validate products/variants
+  for (const item of itemsArr) {
     const product = await this.prisma.product.findUnique({
       where: { id: item.productId },
     });
@@ -67,22 +127,27 @@ async placeOrder(dto: CreateOrderDto, userId: number) {
       throw new BadRequestException(`Product ID ${item.productId} not found`);
     }
 
-    if (item.variantId !== undefined && item.variantId !== null) {
+    if (item.variantId != null) {
       const variant = await this.prisma.variant.findUnique({
         where: { id: item.variantId },
       });
       if (!variant) {
         throw new BadRequestException(`Variant ID ${item.variantId} not found`);
       }
+      if (variant.productId !== item.productId) {
+        throw new BadRequestException(
+          `Variant ${item.variantId} does not belong to product ${item.productId}`
+        );
+      }
     }
   }
 
-  //  Create the order
+  // Create order
   const order = await this.prisma.order.create({
     data: {
       user: { connect: { id: userId } },
       address: { connect: { id: addressId } },
-      paymentMethod: 'COD',
+      paymentMethod: paymentMethod ?? 'COD',
       coupon: couponId ? { connect: { id: couponId } } : undefined,
       subtotal,
       shippingFee,
@@ -90,17 +155,17 @@ async placeOrder(dto: CreateOrderDto, userId: number) {
       totalAmount,
       note,
       items: {
-        create: items.map((item) => ({
+        create: itemsArr.map((item) => ({
           productId: item.productId,
           variantId: item.variantId ?? null,
           quantity: item.quantity,
-          price: item.price,
-          total: item.total,
+          price: item.price, // per-unit
+          total: item.total, // line total before fees
         })),
       },
       payment: {
         create: {
-          method: 'COD',
+          method: paymentMethod ?? 'COD',
           status: 'PENDING',
         },
       },
@@ -113,6 +178,7 @@ async placeOrder(dto: CreateOrderDto, userId: number) {
 
   return order;
 }
+
 
 
  async listOrdersDetails(userId: number) {
@@ -262,7 +328,11 @@ async listOrders(params: ListOrdersParams = {}) {
   };
 }
 
+// OrdersService.ts
+
+// orders.service.ts
 async getOrderDetails(orderId: number) {
+  // 1) Fetch the order WITHOUT including user (avoid Prisma's required-rel error)
   const order = await this.prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -270,28 +340,49 @@ async getOrderDetails(orderId: number) {
         include: {
           product: {
             include: {
-              brand: { select: { name: true } },
+              brand:  { select: { name: true } },
               images: { where: { isMain: true }, select: { url: true, alt: true } },
-              color: { select: { label: true } },
-              size: { select: { title: true } },
+              color:  { select: { label: true } },
+              size:   { select: { title: true } },
             },
           },
           variant: {
             include: {
               images: { where: { isMain: true }, select: { url: true, alt: true } },
-              color: { select: { label: true } },
-              size: { select: { title: true } },
+              color:  { select: { label: true } },
+              size:   { select: { title: true } },
             },
           },
         },
       },
       payment: true,
       address: true,
-      coupon: true,
+      coupon:  true,
+      // 🚫 no `user` here
     },
   });
 
   if (!order) throw new NotFoundException('Order not found');
+
+  // 2) Fetch user separately; handle orphaned order safely
+  const userRecord = await this.prisma.user.findUnique({
+    where: { id: order.userId },
+    select: { id: true, name: true, phone: true, email: true },
+  });
+
+  const user = userRecord
+    ? {
+        id: userRecord.id,
+        name: userRecord.name ?? null,
+        mobile: userRecord.phone ?? null,
+        email: userRecord.email ?? null,
+      }
+    : {
+        id: order.userId,
+        name: null,
+        mobile: null,
+        email: null,
+      };
 
   let totalMRP = 0;
   let totalSellingPrice = 0;
@@ -321,7 +412,7 @@ async getOrderDetails(orderId: number) {
       price,
       mrp,
       color: useVariant ? item.variant?.color?.label : item.product?.color?.label,
-      size: useVariant ? item.variant?.size?.title : item.product?.size?.title,
+      size:  useVariant ? item.variant?.size?.title  : item.product?.size?.title,
       imageUrl: mainImage,
       imageAlt,
     };
@@ -332,26 +423,31 @@ async getOrderDetails(orderId: number) {
       variantId: item.variantId,
       quantity: item.quantity,
       total: item.total,
+      status: item.status,
       [useVariant ? 'variant' : 'product']: productData,
     };
   });
 
-  // 🔖 Fees (keep in sync with order creation logic)
+  // Fees (keep consistent with creation logic)
   const platformFee = 20;
   const shippingFee = Number(order.shippingFee) || 0;
 
-  // ✅ Derive coupon discount from stored totals (no re-validation)
-  // finalPayable = totalSellingPrice - couponDiscount + platformFee + shippingFee
-  // ⇒ couponDiscount = totalSellingPrice + platformFee + shippingFee - order.totalAmount
+  // Derive coupon discount from stored totals
   const storedFinal = Number(order.totalAmount) || 0;
   let couponDiscount = totalSellingPrice + platformFee + shippingFee - storedFinal;
-  // Safety clamp
-  if (!order.coupon) couponDiscount = 0; // no coupon linked → no discount shown
-  couponDiscount = Math.max(0, Math.min(totalSellingPrice, Math.round(couponDiscount * 100) / 100));
+  if (!order.coupon) couponDiscount = 0;
+  couponDiscount = Math.max(
+    0,
+    Math.min(totalSellingPrice, Math.round(couponDiscount * 100) / 100)
+  );
 
   return {
     id: order.id,
+    status: order.status,
+    orderNo: `ORD${String(order.id).padStart(8, '0')}`,
+    orderFrom: order.orderFrom,
     createdAt: order.createdAt,
+    user,                 // ✅ now always present, even if orphaned
     address: order.address,
     payment: order.payment,
     coupon: order.coupon
@@ -372,6 +468,7 @@ async getOrderDetails(orderId: number) {
     },
   };
 }
+
 
 /** Place a single-item order directly from PDP ("Buy Now") using client-provided discount */
 async buyNow(dto: BuyNowDto, userId: number) {
@@ -511,5 +608,206 @@ if (couponId != null) { // covers undefined & null
   return this.getOrderDetails(order.id);
 }
 
+
+
+
+async updateOrder(orderId: number, payload: UpdateOrderPayload) {
+  // 0) Fetch current order & payment
+  const existing = await this.prisma.order.findUnique({
+    where: { id: orderId },
+    include: { payment: true },
+  });
+  if (!existing) throw new NotFoundException('Order not found');
+
+  // 1) Normalize input
+  const body =
+    typeof payload === 'string' ? { status: payload } : (payload ?? {});
+
+  const nextStatusRaw = body.status?.toString().toUpperCase();
+  const nextPayStatusRaw = body.paymentStatus?.toString().toUpperCase();
+
+  // 2) Validate enums (if provided)
+  const allowedOrder = Object.values(OrderStatus);
+  const allowedPay = Object.values(PaymentStatus);
+
+  let nextStatus: OrderStatus | undefined;
+  if (nextStatusRaw) {
+    if (!allowedOrder.includes(nextStatusRaw as OrderStatus)) {
+      throw new BadRequestException(
+        `Invalid order status "${nextStatusRaw}". Allowed: ${allowedOrder.join(', ')}`
+      );
+    }
+    nextStatus = nextStatusRaw as OrderStatus;
+  }
+
+  let nextPayStatus: PaymentStatus | undefined;
+  if (nextPayStatusRaw) {
+    if (!allowedPay.includes(nextPayStatusRaw as PaymentStatus)) {
+      throw new BadRequestException(
+        `Invalid payment status "${nextPayStatusRaw}". Allowed: ${allowedPay.join(', ')}`
+      );
+    }
+    nextPayStatus = nextPayStatusRaw as PaymentStatus;
+  }
+
+  // 3) Optional simple transition checks (customize as needed)
+  // e.g., cannot DELIVERED from PENDING directly, etc. (commented; enable if you want)
+  // const invalid =
+  //   existing.status === 'PENDING' && nextStatus === 'DELIVERED';
+  // if (invalid) throw new BadRequestException('Invalid status transition');
+
+  // 4) Build updates
+  const orderData: any = {};
+  if (nextStatus) orderData.status = nextStatus;
+  if (typeof body.note === 'string') orderData.note = body.note;
+
+  // 5) Apply updates (order + optional payment) in a transaction
+  await this.prisma.$transaction(async (tx) => {
+    if (Object.keys(orderData).length > 0) {
+      await tx.order.update({
+        where: { id: orderId },
+        data: orderData,
+      });
+    }
+
+    // If explicit paymentStatus provided, update it
+    if (nextPayStatus) {
+      if (!existing.payment) {
+        throw new BadRequestException('No payment record found for this order');
+      }
+      await tx.payment.update({
+        where: { orderId },
+        data: {
+          status: nextPayStatus,
+          paidAt:
+            nextPayStatus === 'SUCCESS'
+              ? new Date()
+              : existing.payment.paidAt ?? null,
+        },
+      });
+    }
+
+    // Optional auto-rules (toggle as per your business logic)
+    // Example: when marking order DELIVERED, auto mark COD as SUCCESS if still PENDING
+    if (
+      nextStatus === 'DELIVERED' &&
+      existing.payment &&
+      existing.payment.status === 'PENDING'
+    ) {
+      await tx.payment.update({
+        where: { orderId },
+        data: { status: 'SUCCESS', paidAt: new Date() },
+      });
+    }
+
+    // Example: when CANCELLED and payment was SUCCESS, you might mark REFUNDED
+    // if (nextStatus === 'CANCELLED' && existing.payment?.status === 'SUCCESS') {
+    //   await tx.payment.update({
+    //     where: { orderId },
+    //     data: { status: 'REFUNDED' },
+    //   });
+    // }
+  });
+
+  // 6) Return the fresh order details (with user/address/items etc.)
+  return this.getOrderDetails(orderId);
+}
+
+ /** User asks to cancel a single item (moves item to CANCEL_REQUESTED) */
+  async requestCancelItem(
+    itemId: number,
+    body: RequestCancelItemDto,
+    userId: number,
+  ) {
+    const item = await this.prisma.orderItem.findUnique({
+      where: { id: itemId },
+      include: { order: true },
+    });
+    if (!item) throw new NotFoundException('Order item not found');
+
+    // Ownership check
+    if (item.order.userId !== userId) {
+      throw new ForbiddenException('You do not own this order');
+    }
+
+    // Ensure the item belongs to the provided orderId
+    if (item.orderId !== body.orderId) {
+      throw new BadRequestException('orderId does not match item’s order');
+    }
+
+    // Block if order in final state
+    if (ORDER_FINAL_STATES.includes(item.order.status)) {
+      throw new BadRequestException(`Order is ${item.order.status}; item cannot be changed`);
+    }
+
+    // Idempotency / state sanity
+    if (item.status === OrderItemStatus.CANCEL_REQUESTED || item.status === OrderItemStatus.CANCELLED) {
+      return item; // nothing to change
+    }
+
+    const updated = await this.prisma.orderItem.update({
+      where: { id: itemId },
+      data: {
+        status: OrderItemStatus.CANCEL_REQUESTED,
+        moderationNote: body.note ?? item.moderationNote,
+      },
+    });
+
+    return updated;
+  }
+
+  /** Admin approves or cancels an item (APPROVED / CANCELLED) */
+  async updateOrderItemStatus(
+    itemId: number,
+    body: UpdateOrderItemDto,
+    
+  ) {
+    // Require admin (adjust roles if needed)
+  
+    const item = await this.prisma.orderItem.findUnique({
+      where: { id: itemId },
+      include: { order: { include: { items: { select: { id: true, status: true } } } } },
+    });
+    if (!item) throw new NotFoundException('Order item not found');
+
+    if (item.orderId !== body.orderId) {
+      throw new BadRequestException('orderId does not match item’s order');
+    }
+
+    // Block if order is in terminal state
+    if (ORDER_FINAL_STATES.includes(item.order.status)) {
+      throw new BadRequestException(`Order is ${item.order.status}; item cannot be changed`);
+    }
+
+    const next = body.status.toUpperCase() as 'APPROVED' | 'CANCELLED';
+    const nextEnum =
+      next === 'APPROVED' ? OrderItemStatus.APPROVED : OrderItemStatus.CANCELLED;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedItem = await tx.orderItem.update({
+        where: { id: itemId },
+        data: {
+          status: nextEnum,
+          moderationNote: body.note ?? item.moderationNote,
+         
+        },
+      });
+
+      // If all items are CANCELLED after this change, mark order CANCELLED
+      if (
+        nextEnum === OrderItemStatus.CANCELLED &&
+        item.order.items.every((it) => (it.id === itemId ? true : it.status === OrderItemStatus.CANCELLED))
+      ) {
+        await tx.order.update({
+          where: { id: item.orderId },
+          data: { status: 'CANCELLED' },
+        });
+      }
+
+      return updatedItem;
+    });
+
+    return updated;
+  }
 
 }
