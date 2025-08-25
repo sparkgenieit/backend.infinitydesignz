@@ -46,6 +46,9 @@ model Brand {
   created_at DateTime @default(now())
 
   products Product[]
+  
+    // Back-relation for MainProductPromotion
+  mainProductPromotions MainProductPromotion[] @relation("MPP_Brand")
 
   @@map("brands")
 }
@@ -242,6 +245,40 @@ model MainCategoryPromotion {
   @@map("main_category_promotions")
 }
 
+// ─── MAIN PRODUCT PROMOTIONS ────────────────────────────────────────────────
+model MainProductPromotion {
+  id               Int       @id @default(autoincrement())
+  title            String
+  priority         Int       @default(0)
+  displayPosition  String
+  imageUrl         String
+
+  // Targeting (align with Product: categoryId = List Sub Menu)
+  categoryId       Int
+  brandId          Int?
+  seller           String?
+  minPrice         Float?
+  maxPrice         Float?
+  offerPercentFrom Float?
+  offerPercentTo   Float?
+
+  // SEO
+  seoTitle         String?
+  seoDescription   String?
+  seoKeywords      String?
+
+  // Lifecycle
+  status           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  category Category @relation("MPP_Category", fields: [categoryId], references: [id])
+  brand    Brand?   @relation("MPP_Brand",    fields: [brandId],    references: [id])
+
+  @@map("main_product_promotions")
+}
+
 model AssemblyType {
   id   Int    @id @default(autoincrement())
   name String
@@ -274,6 +311,9 @@ model Category {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Back-relation for MainProductPromotion (single categoryId like Product)
+  mainProductPromotions MainProductPromotion[] @relation("MPP_Category")
 
   @@map("categories")
 }

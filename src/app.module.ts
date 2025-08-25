@@ -40,6 +40,7 @@ import { ContactsModule } from './contacts/contacts.module';
 import { UserSubscribeModule } from './user-subscribe/user-subscribe.module';
 import {FiltersModule} from './filters/filters.module';
 import { KeywordsModule } from './keywords/keywords.module';
+import { MainProductPromotionModule } from './main-product-promotion/main-product-promotion.module';
 
 @Module({
   imports: [      
@@ -74,7 +75,8 @@ import { KeywordsModule } from './keywords/keywords.module';
     UserSubscribeModule,
     ContactsModule,
     FiltersModule,
-    KeywordsModule
+    KeywordsModule,
+    MainProductPromotionModule
   ],
 })
 export class AppModule {}
