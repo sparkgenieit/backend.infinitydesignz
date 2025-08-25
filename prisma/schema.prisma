@@ -449,7 +449,6 @@ model User {
 
   // NEW: one-to-one Buy Now item
   buyNowItem BuyNowItem?
-  Keyword    Keyword[]
 
   @@map("users")
 }
@@ -703,12 +702,10 @@ model UserSubscribe {
 
 model Keyword {
   id        Int      @id @default(autoincrement())
-  keyword   String   @unique @db.VarChar(255) // ✅ enforce uniqueness
-  userId    Int
+  keyword   String   @unique @db.VarChar(255)
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt   // optional but recommended
 
   @@index([createdAt])
-  @@map("keywords")
+  @@map("keywords")               // keeps the existing table name
 }

@@ -5,7 +5,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { KeywordsService } from './keywords.service';
 import { KeywordsController } from './keywords.controller';
-import { AdminKeywordsController } from './admin-keywords.controller';
 
 @Module({
   imports: [
@@ -14,7 +13,7 @@ import { AdminKeywordsController } from './admin-keywords.controller';
     // Optional if AuthModule already exports JwtService:
     JwtModule.register({}) // uses global config if set; or pass { secret: process.env.JWT_SECRET }
   ],
-  controllers: [KeywordsController, AdminKeywordsController],
+  controllers: [KeywordsController],
   providers: [KeywordsService],
   exports: [KeywordsService],
 })
