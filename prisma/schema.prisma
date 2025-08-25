@@ -8,10 +8,10 @@ datasource db {
 }
 
 enum OrderItemStatus {
-  PENDING            // default state after creation
-  CANCEL_REQUESTED   // user requested cancellation
-  APPROVED           // admin approved (e.g., to proceed/ship)
-  CANCELLED          // admin cancelled this item
+  PENDING // default state after creation
+  CANCEL_REQUESTED // user requested cancellation
+  APPROVED // admin approved (e.g., to proceed/ship)
+  CANCELLED // admin cancelled this item
 }
 
 enum PaymentMethod {
@@ -101,7 +101,6 @@ model Variant {
 
   @@map("product_variants")
 }
-
 
 // ─── PRODUCT DETAILS & IMAGES ─────────────────────────────────────────────────
 
@@ -449,7 +448,8 @@ model User {
   CartItem       CartItem[]
 
   // NEW: one-to-one Buy Now item
-  buyNowItem     BuyNowItem?
+  buyNowItem BuyNowItem?
+  Keyword    Keyword[]
 
   @@map("users")
 }
@@ -497,15 +497,15 @@ model Order {
   gst           Float
   totalAmount   Float
   note          String?
-  orderFrom     String        @default("web")   // NEW FIELD
+  orderFrom     String        @default("web") // NEW FIELD
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id])
-  address  Address   @relation(fields: [addressId], references: [id])
-  coupon   Coupon?   @relation(fields: [couponId], references: [id])
-  items    OrderItem[]
-  payment  Payment?
+  user    User        @relation(fields: [userId], references: [id])
+  address Address     @relation(fields: [addressId], references: [id])
+  coupon  Coupon?     @relation(fields: [couponId], references: [id])
+  items   OrderItem[]
+  payment Payment?
 
   @@map("orders")
 }
@@ -528,9 +528,8 @@ model OrderItem {
   total     Float // price * quantity
 
   // ⬇️ NEW moderation fields
-  status          OrderItemStatus @default(PENDING)
-  moderationNote  String?
-  
+  status         OrderItemStatus @default(PENDING)
+  moderationNote String?
 
   order   Order    @relation(fields: [orderId], references: [id])
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -659,24 +658,23 @@ model ServiceableArea {
   isActive        Boolean @default(true)
   codAvailable    Boolean @default(false)
   deliveryEtaDays Int?
-  lastMileFee     Int?    // in your currency (e.g., INR)
+  lastMileFee     Int? // in your currency (e.g., INR)
 
   @@index([pincode])
 }
 
 model BuyNowItem {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @unique
-  productId  Int
-  variantId  Int?
-  quantity   Int      @default(1)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  productId Int
+  variantId Int?
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user    User     @relation(fields: [userId], references: [id])
   product Product  @relation(fields: [productId], references: [id])
   variant Variant? @relation(fields: [variantId], references: [id])
-
 
   @@map("buy_now_items")
 }
@@ -685,12 +683,12 @@ model Contact {
   id          Int      @id @default(autoincrement())
   name        String
   email       String
-  mobile      String?   @db.VarChar(20)
-  subject     String?   @db.VarChar(255)
-  description String?   @db.Text
-  status      Boolean   @default(true)
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
+  mobile      String?  @db.VarChar(20)
+  subject     String?  @db.VarChar(255)
+  description String?  @db.Text
+  status      Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
   @@map("contacts")
 }
@@ -701,4 +699,16 @@ model UserSubscribe {
   subscribed_at DateTime @default(now())
 
   @@map("user_subscribers")
+}
+
+model Keyword {
+  id        Int      @id @default(autoincrement())
+  keyword   String   @unique @db.VarChar(255) // ✅ enforce uniqueness
+  userId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("keywords")
 }
