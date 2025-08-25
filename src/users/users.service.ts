@@ -113,12 +113,60 @@ export class UsersService {
   }
 
   //  Update user (generic, for internal usage)
-  async updateUser(userId: number, dto: Partial<UpdateUserDto>) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: dto,
-    });
+async updateUser(userId: number, dto: Partial<UpdateUserDto>) {
+  const data: Prisma.UserUpdateInput = {};
+
+  // Basic text fields
+  if (dto.name !== undefined) data.name = dto.name;
+  if (dto.email !== undefined) data.email = dto.email;
+
+  // Phones — accept both 'phone' and alias 'mobile'
+  if (dto.phone !== undefined) (data as any).phone = dto.phone;
+  if (dto.mobile !== undefined) (data as any).phone = dto.mobile;
+  if (dto.alternateMobile !== undefined) (data as any).alternateMobile = dto.alternateMobile;
+
+  // Enums / misc
+  if (dto.gender !== undefined) (data as any).gender = dto.gender as any;
+  if (dto.role !== undefined) (data as any).role = dto.role;
+  if (dto.status !== undefined) (data as any).status = dto.status;
+  if (dto.profilePicture !== undefined) (data as any).profilePicture = dto.profilePicture;
+
+  // Dates
+  if (dto.dateOfBirth !== undefined) {
+    (data as any).dateOfBirth = (function parseDob(input?: string): Date | undefined {
+      if (!input) return undefined;
+
+      // ISO first
+      const direct = new Date(input);
+      if (!isNaN(direct.getTime())) return direct;
+
+      // dd/MM/yyyy
+      const m = input.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) {
+        const [, dd, mm, yyyy] = m;
+        const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+        if (!isNaN(d.getTime())) return d;
+      }
+      throw new BadRequestException('Invalid dateOfBirth format. Use YYYY-MM-DD or dd/MM/yyyy.');
+    })(dto.dateOfBirth)!;
   }
+
+  // Token (optional but allowed)
+  if (dto.token !== undefined) (data as any).token = dto.token;
+
+  // Defensive: if whitelist removed everything or keys are wrong, fail early
+  if (Object.keys(data).length === 0) {
+    throw new BadRequestException(
+      'No valid fields to update. Ensure keys match UpdateUserDto and Content-Type is application/json.',
+    );
+  }
+
+  return this.prisma.user.update({
+    where: { id: userId },
+    data,
+  });
+}
+
 
   //  Change password
   async changePassword(userId: number, dto: ChangePasswordDto) {
